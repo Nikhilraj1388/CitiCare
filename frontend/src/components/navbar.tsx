@@ -1,24 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LayoutDashboard, LogOut } from "lucide-react";
 
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Features", href: "/features" },
-  { label: "Contact", href: "/contact" },
+  { label: "Map", href: "/map" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, [pathname]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    router.push("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full glass">
@@ -45,17 +56,34 @@ export function Navbar() {
             ))}
           </nav>
 
-          {/* Desktop Auth Buttons */}
+          {/* Desktop Auth/Dashboard Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link href="/login">Log In</Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-            >
-              <Link href="/register">Get Started</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-2">
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button variant="ghost" onClick={handleLogout} className="text-gray-600 hover:text-red-600 gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link href="/login">Log In</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                >
+                  <Link href="/register">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu */}
@@ -95,15 +123,32 @@ export function Navbar() {
                   ))}
                 </nav>
                 <div className="mt-auto p-4 border-t flex flex-col gap-2">
-                  <Button variant="outline" asChild className="w-full">
-                    <Link href="/login">Log In</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    <Link href="/register">Get Started</Link>
-                  </Button>
+                  {isLoggedIn ? (
+                    <>
+                      <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                        <Link href="/dashboard" onClick={() => setOpen(false)}>
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Link>
+                      </Button>
+                      <Button variant="outline" className="w-full gap-2 text-red-600" onClick={() => { handleLogout(); setOpen(false); }}>
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" asChild className="w-full">
+                        <Link href="/login" onClick={() => setOpen(false)}>Log In</Link>
+                      </Button>
+                      <Button
+                        asChild
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        <Link href="/register" onClick={() => setOpen(false)}>Get Started</Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>

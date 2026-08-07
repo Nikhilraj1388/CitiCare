@@ -38,9 +38,8 @@ const citizenLinks: SidebarLink[] = [
   { label: "Report Issue", href: "/dashboard/report", icon: FileWarning },
   { label: "My Complaints", href: "/dashboard/complaints", icon: ClipboardList },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-  { label: "Public Map", href: "/dashboard/map", icon: Map },
+  { label: "Public Map", href: "/map", icon: Map },
   { label: "Profile", href: "/dashboard/profile", icon: User },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 const officialLinks: SidebarLink[] = [
@@ -53,12 +52,10 @@ const officialLinks: SidebarLink[] = [
 const adminLinks: SidebarLink[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Users", href: "/dashboard/users", icon: Users },
-  { label: "Departments", href: "/dashboard/departments", icon: Building2 },
-  { label: "Complaints", href: "/dashboard/complaints", icon: ClipboardList },
+  { label: "Complaints", href: "/dashboard/assigned", icon: ClipboardList },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { label: "Reports", href: "/dashboard/reports", icon: FileText },
-  { label: "SLA Rules", href: "/dashboard/sla", icon: Timer },
-  { label: "Audit Logs", href: "/dashboard/audit-logs", icon: Shield },
+  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
+  { label: "Profile", href: "/dashboard/profile", icon: User },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

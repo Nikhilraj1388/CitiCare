@@ -4,11 +4,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,
 });
 
 // Request interceptor — attach JWT token
@@ -23,13 +22,18 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle errors globally
+// Response interceptor — handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid — clear and redirect
-      if (typeof window !== "undefined") {
+    // Only redirect on 401 if we're NOT on the login/register page
+    // and the request was NOT a login/register attempt
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      const url = error.config?.url || "";
+      const isAuthRoute = url.includes("/auth/login") || url.includes("/auth/register");
+      const isOnLoginPage = window.location.pathname === "/login" || window.location.pathname === "/register";
+
+      if (!isAuthRoute && !isOnLoginPage) {
         localStorage.removeItem("token");
         window.location.href = "/login";
       }

@@ -53,8 +53,20 @@ export default function DashboardPage() {
             resolved: all.filter((c) => c.status === "RESOLVED").length,
             reopened: all.filter((c) => c.status === "REOPENED").length,
           });
+        } else if (user.role === "OFFICIAL") {
+          // Official — use assigned complaints list
+          const res = await complaintService.getAll(1, 100);
+          const data = res.data as { complaints: Complaint[] };
+          const all = data.complaints || [];
+          setComplaints(all.slice(0, 5));
+          setStats({
+            total: all.length,
+            pending: all.filter((c) => ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS"].includes(c.status)).length,
+            resolved: all.filter((c) => c.status === "RESOLVED").length,
+            reopened: all.filter((c) => c.status === "REOPENED").length,
+          });
         } else {
-          // Official / Admin — use admin stats
+          // Admin — use admin stats
           const res = await adminService.getStats();
           const data = res.data as {
             totalComplaints: number;
