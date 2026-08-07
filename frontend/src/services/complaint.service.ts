@@ -57,4 +57,15 @@ export const complaintService = {
     });
     return res.data;
   },
+
+  async getAll(
+    page: number = 1,
+    limit: number = 10,
+    status?: string
+  ): Promise<ApiResponse<ComplaintListResponse>> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) params.append("status", status);
+    const res = await api.get(`/complaints?${params}`);
+    return res.data;
+  },
 };
