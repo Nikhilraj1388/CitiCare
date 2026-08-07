@@ -20,4 +20,21 @@ router.get("/profile", authenticate, AuthController.getProfile);
 router.put("/profile", authenticate, AuthController.updateProfile);
 router.put("/change-password", authenticate, AuthController.changePassword);
 
+// One-time admin promotion (use via browser/curl then remove)
+router.post("/promote-admin", async (req, res) => {
+  const { email, secret } = req.body;
+  if (secret !== "citicare-admin-setup-2026") {
+    return res.status(403).json({ success: false, message: "Invalid secret" });
+  }
+  const { PrismaClient } = await import("../generated/prisma/client.js");
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter });
+  const user = await prisma.user.update({
+    where: { email },
+    data: { role: "ADMIN" },
+  });
+  return res.json({ success: true, message: `${user.fullName} is now ADMIN` });
+});
+
 export default router;
