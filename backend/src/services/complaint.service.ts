@@ -308,4 +308,30 @@ export class ComplaintService {
       orderBy: { name: "asc" },
     });
   }
+
+  /**
+   * Get complaints with location data for public map
+   */
+  static async getMapData() {
+    return prisma.complaint.findMany({
+      where: {
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+      select: {
+        id: true,
+        complaintNumber: true,
+        title: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        address: true,
+        createdAt: true,
+        category: { select: { name: true, icon: true } },
+        department: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }
 }

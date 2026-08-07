@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { MapPin, Send } from "lucide-react";
+import { MapPin, Send, ImagePlus, X } from "lucide-react";
 import type { ComplaintCategory } from "@/types";
+import api from "@/lib/axios";
 
 const complaintSchema = z.object({
   categoryId: z.string().min(1, "Please select a category"),
@@ -41,6 +42,9 @@ export default function ReportPage() {
     lng: number;
   } | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const {
     register,
@@ -83,9 +87,42 @@ export default function ReportPage() {
     );
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (imageFiles.length + files.length > 3) {
+      toast.error("Maximum 3 images allowed");
+      return;
+    }
+    const newFiles = [...imageFiles, ...files];
+    setImageFiles(newFiles);
+    setImagePreviews(
+      newFiles.map((f) => URL.createObjectURL(f))
+    );
+  };
+
+  const removeImage = (index: number) => {
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    setImageFiles(newFiles);
+    setImagePreviews(newFiles.map((f) => URL.createObjectURL(f)));
+  };
+
   const onSubmit = async (data: ComplaintForm) => {
     setIsSubmitting(true);
     try {
+      let imageUrls: string[] = [];
+
+      // Upload images first if any
+      if (imageFiles.length > 0) {
+        setUploadingImages(true);
+        const formData = new FormData();
+        imageFiles.forEach((f) => formData.append("images", f));
+        const uploadRes = await api.post("/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        imageUrls = (uploadRes.data.data as { urls: string[] }).urls;
+        setUploadingImages(false);
+      }
+
       await complaintService.create({
         categoryId: data.categoryId,
         title: data.title,
@@ -93,6 +130,7 @@ export default function ReportPage() {
         address: data.address,
         latitude: location?.lat,
         longitude: location?.lng,
+        imageUrls,
       });
       toast.success("Complaint submitted successfully!");
       router.push("/dashboard/complaints");
@@ -101,6 +139,7 @@ export default function ReportPage() {
       toast.error(err.response?.data?.message || "Failed to submit complaint");
     } finally {
       setIsSubmitting(false);
+      setUploadingImages(false);
     }
   };
 
@@ -218,6 +257,37 @@ export default function ReportPage() {
               placeholder="Enter the street address or landmark"
               {...register("address")}
             />
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-3">
+            <Label>Photos (optional, max 3)</Label>
+            <div className="flex items-center gap-3 flex-wrap">
+              {imagePreviews.map((src, i) => (
+                <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                  <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {imageFiles.length < 3 && (
+                <label className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-emerald-400 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                  <ImagePlus className="h-6 w-6 text-gray-400" />
+                  <span className="text-xs text-gray-400 mt-1">Add</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
           </div>
 
           {/* Submit */}

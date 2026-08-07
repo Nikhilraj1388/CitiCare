@@ -114,4 +114,13 @@ export class ComplaintController {
       next(error);
     }
   }
+
+  static async getMapData(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await ComplaintService.getMapData();
+      sendSuccess(res, "Map data retrieved", data);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

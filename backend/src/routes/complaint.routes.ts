@@ -12,6 +12,7 @@ const router = Router();
 
 // Public
 router.get("/categories", ComplaintController.getCategories);
+router.get("/map", ComplaintController.getMapData);
 
 // Citizen routes
 router.post(
