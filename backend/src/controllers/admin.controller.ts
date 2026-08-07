@@ -17,14 +17,14 @@ export class AdminController {
 
   static async toggleUserStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await AdminService.toggleUserStatus(req.params.id);
+      const user = await AdminService.toggleUserStatus(req.params.id as string);
       sendSuccess(res, `User ${user.isActive ? "activated" : "deactivated"}`, user);
     } catch (error) { next(error); }
   }
 
   static async changeUserRole(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await AdminService.changeUserRole(req.params.id, req.body.role);
+      const user = await AdminService.changeUserRole(req.params.id as string, req.body.role);
       sendSuccess(res, "Role updated", user);
     } catch (error) { next(error); }
   }

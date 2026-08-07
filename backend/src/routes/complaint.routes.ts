@@ -7,6 +7,7 @@ import {
   updateStatusValidator,
   feedbackValidator,
 } from "../validators/complaint.validator";
+import { auditLog } from "../middleware/auditLog";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.post(
   authorize("CITIZEN"),
   createComplaintValidator,
   validate,
+  auditLog("CREATE_COMPLAINT"),
   ComplaintController.create
 );
 
@@ -57,6 +59,7 @@ router.put(
   authorize("OFFICIAL", "ADMIN"),
   updateStatusValidator,
   validate,
+  auditLog("UPDATE_STATUS"),
   ComplaintController.updateStatus
 );
 

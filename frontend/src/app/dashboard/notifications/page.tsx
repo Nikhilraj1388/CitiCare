@@ -8,7 +8,7 @@ import { PageLoader } from "@/components/page-loader";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, BellOff, Check, CheckCheck, Info, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { BellOff, Check, CheckCheck, Info, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import api from "@/lib/axios";
 
 interface NotificationItem {
@@ -31,6 +31,7 @@ export default function NotificationsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,8 +41,15 @@ export default function NotificationsPage() {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      // For now, show empty state since notification API will be built later
-      setNotifications([]);
+      const res = await api.get("/notifications");
+      const data = res.data.data as {
+        notifications: NotificationItem[];
+        unreadCount: number;
+      };
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+    } catch {
+      // silently handle
     } finally {
       setLoading(false);
     }
@@ -50,6 +58,28 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (isAuthenticated) fetchNotifications();
   }, [isAuthenticated, fetchNotifications]);
+
+  const markAsRead = async (id: string) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // silently handle
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await api.put("/notifications/read-all");
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch {
+      // silently handle
+    }
+  };
 
   if (authLoading || !user) return <PageLoader />;
 
@@ -62,10 +92,19 @@ export default function NotificationsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-gray-500 mt-1">Stay updated on your complaints</p>
+            <p className="text-gray-500 mt-1">
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+                : "All caught up!"}
+            </p>
           </div>
-          {notifications.length > 0 && (
-            <Button variant="outline" size="sm" className="gap-2">
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={markAllRead}
+            >
               <CheckCheck className="h-4 w-4" />
               Mark all read
             </Button>
@@ -83,7 +122,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-2">
             {notifications.map((n) => {
-              const config = typeConfig[n.type];
+              const config = typeConfig[n.type] || typeConfig.INFO;
               const Icon = config.icon;
               return (
                 <div
@@ -91,7 +130,7 @@ export default function NotificationsPage() {
                   className={`flex items-start gap-4 p-4 rounded-xl border transition-all ${
                     n.isRead
                       ? "bg-white border-gray-100"
-                      : "bg-emerald-50/30 border-emerald-100"
+                      : "bg-emerald-50/30 border-emerald-100 shadow-sm"
                   }`}
                 >
                   <div className={`p-2 rounded-xl ${config.bg} shrink-0`}>
@@ -101,7 +140,9 @@ export default function NotificationsPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 text-sm">{n.title}</p>
                       {!n.isRead && (
-                        <Badge className="bg-emerald-100 text-emerald-700 text-xs">New</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                          New
+                        </Badge>
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-0.5">{n.message}</p>
@@ -110,7 +151,12 @@ export default function NotificationsPage() {
                     </p>
                   </div>
                   {!n.isRead && (
-                    <Button variant="ghost" size="icon" className="shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => markAsRead(n.id)}
+                    >
                       <Check className="h-4 w-4 text-gray-400" />
                     </Button>
                   )}

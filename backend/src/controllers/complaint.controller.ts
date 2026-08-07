@@ -36,7 +36,7 @@ export class ComplaintController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const complaint = await ComplaintService.getById(req.params.id, req.user!.id);
+      const complaint = await ComplaintService.getById(req.params.id as string, req.user!.id);
       sendSuccess(res, "Complaint retrieved", complaint);
     } catch (error) {
       next(error);
@@ -63,7 +63,7 @@ export class ComplaintController {
     try {
       const { status, remarks } = req.body;
       const complaint = await ComplaintService.updateStatus(
-        req.params.id,
+        req.params.id as string,
         req.user!.id,
         status,
         remarks
@@ -78,7 +78,7 @@ export class ComplaintController {
     try {
       const { rating, comment } = req.body;
       const feedback = await ComplaintService.submitFeedback(
-        req.params.id,
+        req.params.id as string,
         req.user!.id,
         rating,
         comment
@@ -95,7 +95,7 @@ export class ComplaintController {
       const limit = parseInt(req.query.limit as string) || 10;
       const status = req.query.status as string | undefined;
       const result = await ComplaintService.getByDepartment(
-        req.params.departmentId,
+        req.params.departmentId as string,
         page,
         limit,
         status

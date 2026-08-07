@@ -1,6 +1,8 @@
 import prisma from "../config/database";
 import { generateCRN } from "../utils/generateCRN";
 import { ApiError } from "../middleware/errorHandler";
+import { EmailService } from "./email.service";
+import { NotificationService } from "./notification.service";
 
 export class ComplaintService {
   /**
@@ -70,6 +72,16 @@ export class ComplaintService {
         statusHistory: { orderBy: { updatedAt: "desc" } },
       },
     });
+
+    // Send email + in-app notification (non-blocking)
+    const citizen = await prisma.user.findUnique({ where: { id: data.citizenId }, select: { email: true, fullName: true } });
+    if (citizen) {
+      EmailService.sendComplaintCreated(
+        citizen.email, citizen.fullName, complaintNumber, data.title,
+        complaint.department?.name || "Pending Assignment"
+      ).catch(() => {});
+      NotificationService.notifyComplaintCreated(data.citizenId, complaintNumber).catch(() => {});
+    }
 
     return complaint;
   }
@@ -232,6 +244,24 @@ export class ComplaintService {
         statusHistory: { orderBy: { updatedAt: "desc" }, take: 1 },
       },
     });
+
+    // Send email + in-app notification to citizen (non-blocking)
+    const citizen = await prisma.user.findUnique({
+      where: { id: complaint.citizenId },
+      select: { email: true, fullName: true },
+    });
+    if (citizen) {
+      if (status === "RESOLVED") {
+        EmailService.sendComplaintResolved(citizen.email, citizen.fullName, complaint.complaintNumber, complaint.title).catch(() => {});
+        NotificationService.notifyResolved(complaint.citizenId, complaint.complaintNumber).catch(() => {});
+      } else {
+        EmailService.sendStatusUpdate(
+          citizen.email, citizen.fullName, complaint.complaintNumber, complaint.title,
+          complaint.status, status, remarks
+        ).catch(() => {});
+        NotificationService.notifyStatusUpdate(complaint.citizenId, complaint.complaintNumber, status).catch(() => {});
+      }
+    }
 
     return updated;
   }

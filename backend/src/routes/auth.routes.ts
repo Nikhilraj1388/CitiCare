@@ -12,6 +12,8 @@ const router = Router();
 // Public routes
 router.post("/register", registerValidator, validate, AuthController.register);
 router.post("/login", loginValidator, validate, AuthController.login);
+router.post("/forgot-password", AuthController.forgotPassword);
+router.post("/reset-password", AuthController.resetPassword);
 
 // Protected routes
 router.get("/profile", authenticate, AuthController.getProfile);
