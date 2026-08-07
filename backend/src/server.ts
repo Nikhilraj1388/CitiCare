@@ -21,7 +21,19 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: config.clientUrl,
+    origin: (origin, callback) => {
+      const allowed = [
+        config.clientUrl,
+        'http://localhost:3000',
+      ];
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      // Allow any .vercel.app subdomain
+      if (!origin || allowed.includes(origin) || /\.vercel\.app$/.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all in production for now
+      }
+    },
     credentials: true,
   })
 );
