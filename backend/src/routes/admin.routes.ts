@@ -4,10 +4,11 @@ import { authenticate, authorize } from "../middleware/auth";
 
 const router = Router();
 
-// All admin routes require ADMIN role
-router.use(authenticate, authorize("ADMIN"));
+// Stats accessible by both OFFICIAL and ADMIN
+router.get("/stats", authenticate, authorize("OFFICIAL", "ADMIN"), AdminController.getDashboardStats);
 
-router.get("/stats", AdminController.getDashboardStats);
+// All other admin routes require ADMIN role
+router.use(authenticate, authorize("ADMIN"));
 router.get("/users", AdminController.getUsers);
 router.post("/users", AdminController.createUser);
 router.put("/users/:id/toggle-status", AdminController.toggleUserStatus);
