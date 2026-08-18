@@ -10,6 +10,14 @@ import { CategoryIcon } from "@/components/category-icon";
 import { PageLoader } from "@/components/page-loader";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import api from "@/lib/axios";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -31,6 +39,8 @@ export default function ComplaintDetailPage({
   const router = useRouter();
   const [complaint, setComplaint] = useState<Complaint | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const isAdminOrOfficial = user?.role === "ADMIN" || user?.role === "OFFICIAL";
   const [rating, setRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -102,6 +112,38 @@ export default function ComplaintDetailPage({
                 <StatusBadge
                   status={complaint.status as ComplaintStatus}
                 />
+                {isAdminOrOfficial && (
+                  <Select
+                    value={complaint.status}
+                    onValueChange={async (v) => {
+                      setUpdatingStatus(true);
+                      try {
+                        await api.put(`/complaints/${complaint.id}/status`, {
+                          status: v,
+                          remarks: `Status updated to ${v.replace("_", " ").toLowerCase()}`,
+                        });
+                        setComplaint({ ...complaint, status: v as ComplaintStatus });
+                        toast.success("Status updated");
+                      } catch {
+                        toast.error("Failed to update status");
+                      } finally {
+                        setUpdatingStatus(false);
+                      }
+                    }}
+                    disabled={updatingStatus}
+                  >
+                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                      <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="RESOLVED">Resolved</SelectItem>
+                      <SelectItem value="REOPENED">Reopened</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <h1 className="text-xl font-bold text-gray-900">
                 {complaint.title}
