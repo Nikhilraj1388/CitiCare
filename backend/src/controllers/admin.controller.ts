@@ -43,9 +43,9 @@ export class AdminController {
     } catch (error) { next(error); }
   }
 
-  static async getDashboardStats(_req: Request, res: Response, next: NextFunction) {
+  static async getDashboardStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const stats = await AdminService.getDashboardStats();
+      const stats = await AdminService.getDashboardStats(req.user!.id, req.user!.role);
       sendSuccess(res, "Dashboard stats", stats);
     } catch (error) { next(error); }
   }

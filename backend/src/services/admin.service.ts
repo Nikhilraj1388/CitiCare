@@ -88,21 +88,41 @@ export class AdminService {
     });
   }
 
-  /** Dashboard stats */
-  static async getDashboardStats() {
+  /** Dashboard stats - scoped by department for officials */
+  static async getDashboardStats(userId?: string, userRole?: string) {
+    // For officials, get their department IDs
+    let departmentFilter: Record<string, unknown> = {};
+    let departmentName = "";
+    if (userRole === "OFFICIAL" && userId) {
+      const deptUsers = await prisma.departmentUser.findMany({
+        where: { userId },
+        include: { department: true },
+      });
+      const deptIds = deptUsers.map((du) => du.departmentId);
+      if (deptIds.length > 0) {
+        departmentFilter = { departmentId: { in: deptIds } };
+        departmentName = deptUsers[0]?.department?.name || "";
+      }
+    }
+
+    const complaintWhere = departmentFilter;
+
     const [totalUsers, totalComplaints, statusCounts, categoryStats, recentComplaints] =
       await Promise.all([
-        prisma.user.count(),
-        prisma.complaint.count(),
+        userRole === "OFFICIAL" ? 0 : prisma.user.count(),
+        prisma.complaint.count({ where: complaintWhere }),
         prisma.complaint.groupBy({
           by: ["status"],
+          where: complaintWhere,
           _count: { status: true },
         }),
         prisma.complaint.groupBy({
           by: ["categoryId"],
+          where: complaintWhere,
           _count: { categoryId: true },
         }),
         prisma.complaint.findMany({
+          where: complaintWhere,
           take: 5,
           orderBy: { createdAt: "desc" },
           include: {
@@ -137,6 +157,7 @@ export class AdminService {
         : 0,
       categoryStats: categoryStatsWithNames,
       recentComplaints,
+      departmentName: departmentName || undefined,
     };
   }
 
