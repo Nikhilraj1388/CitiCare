@@ -216,7 +216,7 @@ export default function ComplaintDetailPage({
                 Get Directions
               </a>
               <span className="text-xs text-gray-400">
-                {complaint.latitude.toFixed(6)}, {complaint.longitude.toFixed(6)}
+                {Number(complaint.latitude).toFixed(6)}, {Number(complaint.longitude).toFixed(6)}
               </span>
             </div>
           </div>
