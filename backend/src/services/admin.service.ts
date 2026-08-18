@@ -139,4 +139,31 @@ export class AdminService {
       recentComplaints,
     };
   }
+
+  /** Remove user from department */
+  static async removeUserFromDepartment(userId: string, departmentId: string) {
+    const record = await prisma.departmentUser.findUnique({
+      where: { userId_departmentId: { userId, departmentId } },
+    });
+    if (!record) throw new ApiError(404, "User is not assigned to this department");
+
+    await prisma.departmentUser.delete({
+      where: { userId_departmentId: { userId, departmentId } },
+    });
+    return { userId, departmentId };
+  }
+
+  /** Get departments a user is assigned to */
+  static async getUserDepartments(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiError(404, "User not found");
+
+    const departmentUsers = await prisma.departmentUser.findMany({
+      where: { userId },
+      include: {
+        department: true,
+      },
+    });
+    return departmentUsers.map((du) => du.department);
+  }
 }

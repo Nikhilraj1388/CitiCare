@@ -169,6 +169,8 @@ export class ComplaintService {
     categoryId?: string;
     departmentId?: string;
     search?: string;
+    userId?: string;
+    userRole?: string;
   }) {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
@@ -184,6 +186,16 @@ export class ComplaintService {
         { complaintNumber: { contains: filters.search, mode: "insensitive" } },
         { description: { contains: filters.search, mode: "insensitive" } },
       ];
+    }
+
+    // For OFFICIAL users, scope complaints to their assigned departments
+    if (filters.userRole === "OFFICIAL" && filters.userId) {
+      const departmentUsers = await prisma.departmentUser.findMany({
+        where: { userId: filters.userId },
+        select: { departmentId: true },
+      });
+      const departmentIds = departmentUsers.map((du) => du.departmentId);
+      where.departmentId = { in: departmentIds };
     }
 
     const [complaints, total] = await Promise.all([

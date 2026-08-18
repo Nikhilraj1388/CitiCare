@@ -49,4 +49,18 @@ export class AdminController {
       sendSuccess(res, "Dashboard stats", stats);
     } catch (error) { next(error); }
   }
+
+  static async removeUserFromDepartment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AdminService.removeUserFromDepartment(req.body.userId, req.body.departmentId);
+      sendSuccess(res, "User removed from department", result);
+    } catch (error) { next(error); }
+  }
+
+  static async getUserDepartments(req: Request, res: Response, next: NextFunction) {
+    try {
+      const departments = await AdminService.getUserDepartments(req.params.id as string);
+      sendSuccess(res, "User departments retrieved", departments);
+    } catch (error) { next(error); }
+  }
 }

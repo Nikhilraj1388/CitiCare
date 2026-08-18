@@ -37,6 +37,12 @@ interface UserRow {
   isActive: boolean;
   createdAt: string;
   _count: { complaints: number };
+  departmentUsers?: { department: { id: string; name: string } }[];
+}
+
+interface Department {
+  id: string;
+  name: string;
 }
 
 export default function AdminUsersPage() {
@@ -48,12 +54,50 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [userDepartments, setUserDepartments] = useState<Record<string, string>>({});
+  const [assigningDept, setAssigningDept] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "ADMIN")) {
       router.push("/dashboard");
     }
   }, [authLoading, isAuthenticated, user, router]);
+
+  // Load departments once on mount
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const res = await adminService.getDepartments();
+        setDepartments(res.data as Department[]);
+      } catch {
+        // Departments will just be empty if this fails
+      }
+    };
+    if (isAuthenticated && user?.role === "ADMIN") {
+      loadDepartments();
+    }
+  }, [isAuthenticated, user]);
+
+  // Fetch departments for all OFFICIAL users
+  const fetchUserDepartments = useCallback(async (usersList: UserRow[]) => {
+    const officials = usersList.filter((u) => u.role === "OFFICIAL");
+    const deptMap: Record<string, string> = {};
+    await Promise.allSettled(
+      officials.map(async (u) => {
+        try {
+          const res = await adminService.getUserDepartments(u.id);
+          const data = res.data as { department: { id: string; name: string } }[];
+          if (Array.isArray(data) && data.length > 0) {
+            deptMap[u.id] = data[0].department.id;
+          }
+        } catch {
+          // ignore individual failures
+        }
+      })
+    );
+    setUserDepartments(deptMap);
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -66,12 +110,13 @@ export default function AdminUsersPage() {
       const data = res.data as { users: UserRow[]; pagination: { totalPages: number } };
       setUsers(data.users);
       setTotalPages(data.pagination.totalPages);
+      fetchUserDepartments(data.users);
     } catch {
       toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
-  }, [page, roleFilter, search]);
+  }, [page, roleFilter, search, fetchUserDepartments]);
 
   useEffect(() => {
     if (isAuthenticated && user?.role === "ADMIN") fetchUsers();
@@ -91,6 +136,31 @@ export default function AdminUsersPage() {
       toast.success("Role updated");
       fetchUsers();
     } catch { toast.error("Failed to update role"); }
+  };
+
+  const handleAssignDepartment = async (userId: string, departmentId: string) => {
+    setAssigningDept(userId);
+    try {
+      // If user already has a department, remove it first
+      const currentDeptId = userDepartments[userId];
+      if (currentDeptId) {
+        await adminService.removeDepartment(userId, currentDeptId);
+      }
+      await adminService.assignDepartment(userId, departmentId);
+      setUserDepartments((prev) => ({ ...prev, [userId]: departmentId }));
+      toast.success("Department assigned successfully");
+    } catch {
+      toast.error("Failed to assign department");
+    } finally {
+      setAssigningDept(null);
+    }
+  };
+
+  const getDepartmentName = (userId: string): string | null => {
+    const deptId = userDepartments[userId];
+    if (!deptId) return null;
+    const dept = departments.find((d) => d.id === deptId);
+    return dept?.name || null;
   };
 
   if (authLoading || !user) return <PageLoader />;
@@ -140,6 +210,7 @@ export default function AdminUsersPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Complaints</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
@@ -164,6 +235,38 @@ export default function AdminUsersPage() {
                           <SelectItem value="ADMIN">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell>
+                      {u.role === "OFFICIAL" ? (
+                        <div className="flex flex-col gap-1.5">
+                          {getDepartmentName(u.id) && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs w-fit"
+                            >
+                              {getDepartmentName(u.id)}
+                            </Badge>
+                          )}
+                          <Select
+                            value={userDepartments[u.id] || ""}
+                            onValueChange={(deptId) => handleAssignDepartment(u.id, deptId)}
+                            disabled={assigningDept === u.id}
+                          >
+                            <SelectTrigger className="w-[160px] h-8 text-xs">
+                              <SelectValue placeholder="Assign department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.id}>
+                                  {dept.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{u._count.complaints}</Badge>

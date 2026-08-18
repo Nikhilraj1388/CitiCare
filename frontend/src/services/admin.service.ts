@@ -64,4 +64,19 @@ export const adminService = {
     const res = await api.get("/admin/departments");
     return res.data;
   },
+
+  async assignDepartment(userId: string, departmentId: string): Promise<ApiResponse<unknown>> {
+    const res = await api.put(`/admin/departments/assign`, { userId, departmentId });
+    return res.data;
+  },
+
+  async removeDepartment(userId: string, departmentId: string): Promise<ApiResponse<unknown>> {
+    const res = await api.delete(`/admin/departments/assign`, { data: { userId, departmentId } });
+    return res.data;
+  },
+
+  async getUserDepartments(userId: string): Promise<ApiResponse<unknown>> {
+    const res = await api.get(`/admin/users/${userId}/departments`);
+    return res.data;
+  },
 };

@@ -52,6 +52,8 @@ export class ComplaintController {
         categoryId: req.query.categoryId as string,
         departmentId: req.query.departmentId as string,
         search: req.query.search as string,
+        userId: req.user!.id,
+        userRole: req.user!.role,
       });
       sendSuccess(res, "Complaints retrieved", result);
     } catch (error) {

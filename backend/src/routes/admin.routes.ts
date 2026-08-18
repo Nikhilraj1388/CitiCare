@@ -13,5 +13,7 @@ router.put("/users/:id/toggle-status", AdminController.toggleUserStatus);
 router.put("/users/:id/role", AdminController.changeUserRole);
 router.get("/departments", AdminController.getDepartments);
 router.post("/departments/assign", AdminController.assignUserToDepartment);
+router.delete("/departments/assign", AdminController.removeUserFromDepartment);
+router.get("/users/:id/departments", AdminController.getUserDepartments);
 
 export default router;
