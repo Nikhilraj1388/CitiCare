@@ -186,6 +186,42 @@ export default function ComplaintDetailPage({
           </div>
         </div>
 
+        {/* Location Map */}
+        {complaint.latitude && complaint.longitude && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-emerald-600" />
+              Complaint Location
+            </h2>
+            {complaint.address && (
+              <p className="text-gray-600 mb-3 text-sm">{complaint.address}</p>
+            )}
+            <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: '300px' }}>
+              <iframe
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${complaint.longitude - 0.005},${complaint.latitude - 0.005},${complaint.longitude + 0.005},${complaint.latitude + 0.005}&layer=mapnik&marker=${complaint.latitude},${complaint.longitude}`}
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${complaint.latitude},${complaint.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                <MapPin className="h-4 w-4" />
+                Get Directions
+              </a>
+              <span className="text-xs text-gray-400">
+                {complaint.latitude.toFixed(6)}, {complaint.longitude.toFixed(6)}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Images */}
         {complaint.images && complaint.images.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
