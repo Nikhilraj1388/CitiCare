@@ -140,6 +140,36 @@ export class AdminService {
     };
   }
 
+  /** Admin creates a user with any role */
+  static async createUser(data: {
+    fullName: string; email: string; phone: string;
+    password: string; role: string; departmentId?: string;
+  }) {
+    const bcrypt = await import("bcryptjs");
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) throw new ApiError(409, "Email already registered");
+
+    const hashedPassword = await bcrypt.default.hash(data.password, 12);
+    const user = await prisma.user.create({
+      data: {
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        password: hashedPassword,
+        role: data.role as "CITIZEN" | "OFFICIAL" | "ADMIN",
+      },
+      select: { id: true, fullName: true, email: true, role: true },
+    });
+
+    if (data.role === "OFFICIAL" && data.departmentId) {
+      await prisma.departmentUser.create({
+        data: { userId: user.id, departmentId: data.departmentId },
+      });
+    }
+
+    return user;
+  }
+
   /** Remove user from department */
   static async removeUserFromDepartment(userId: string, departmentId: string) {
     const record = await prisma.departmentUser.findUnique({

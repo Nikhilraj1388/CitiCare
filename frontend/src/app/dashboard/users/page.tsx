@@ -25,8 +25,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Users, ShieldCheck, ShieldOff } from "lucide-react";
+import { Search, Users, ShieldCheck, ShieldOff, Plus } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -57,6 +65,9 @@ export default function AdminUsersPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [userDepartments, setUserDepartments] = useState<Record<string, string>>({});
   const [assigningDept, setAssigningDept] = useState<string | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newUser, setNewUser] = useState({ fullName: '', email: '', phone: '', password: '', role: 'CITIZEN', departmentId: '' });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "ADMIN")) {
@@ -163,14 +174,97 @@ export default function AdminUsersPage() {
     return dept?.name || null;
   };
 
+  const handleCreateUser = async () => {
+    if (!newUser.fullName || !newUser.email || !newUser.password) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+    setCreating(true);
+    try {
+      await adminService.createUser({
+        ...newUser,
+        departmentId: newUser.role === 'OFFICIAL' && newUser.departmentId ? newUser.departmentId : undefined,
+      });
+      toast.success('User created successfully');
+      setAddDialogOpen(false);
+      setNewUser({ fullName: '', email: '', phone: '', password: '', role: 'CITIZEN', departmentId: '' });
+      fetchUsers();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      toast.error(error.response?.data?.message || 'Failed to create user');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (authLoading || !user) return <PageLoader />;
 
   return (
     <DashboardLayout role="ADMIN" userName={user.fullName}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-500 mt-1">Manage all registered users</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+            <p className="text-gray-500 mt-1">Manage all registered users</p>
+          </div>
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                <Plus className="h-4 w-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New User</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Full Name *</Label>
+                  <Input value={newUser.fullName} onChange={(e) => setNewUser({...newUser, fullName: e.target.value})} placeholder="Enter full name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email *</Label>
+                  <Input type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="Enter email" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={newUser.phone} onChange={(e) => setNewUser({...newUser, phone: e.target.value})} placeholder="Enter phone number" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password *</Label>
+                  <Input type="password" value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} placeholder="Enter password" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={newUser.role} onValueChange={(v) => setNewUser({...newUser, role: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CITIZEN">Citizen</SelectItem>
+                      <SelectItem value="OFFICIAL">Official</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {newUser.role === 'OFFICIAL' && (
+                  <div className="space-y-2">
+                    <Label>Department</Label>
+                    <Select value={newUser.departmentId} onValueChange={(v) => setNewUser({...newUser, departmentId: v})}>
+                      <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                      <SelectContent>
+                        {departments.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateUser} disabled={creating}>
+                  {creating ? 'Creating...' : 'Create User'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Filters */}

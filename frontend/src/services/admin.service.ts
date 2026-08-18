@@ -66,7 +66,7 @@ export const adminService = {
   },
 
   async assignDepartment(userId: string, departmentId: string): Promise<ApiResponse<unknown>> {
-    const res = await api.put(`/admin/departments/assign`, { userId, departmentId });
+    const res = await api.post(`/admin/departments/assign`, { userId, departmentId });
     return res.data;
   },
 
@@ -77,6 +77,14 @@ export const adminService = {
 
   async getUserDepartments(userId: string): Promise<ApiResponse<unknown>> {
     const res = await api.get(`/admin/users/${userId}/departments`);
+    return res.data;
+  },
+
+  async createUser(data: {
+    fullName: string; email: string; phone: string;
+    password: string; role: string; departmentId?: string;
+  }): Promise<ApiResponse<unknown>> {
+    const res = await api.post('/admin/users', data);
     return res.data;
   },
 };

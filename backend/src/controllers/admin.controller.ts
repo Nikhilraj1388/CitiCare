@@ -63,4 +63,11 @@ export class AdminController {
       sendSuccess(res, "User departments retrieved", departments);
     } catch (error) { next(error); }
   }
+
+  static async createUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await AdminService.createUser(req.body);
+      sendSuccess(res, "User created", user);
+    } catch (error) { next(error); }
+  }
 }
