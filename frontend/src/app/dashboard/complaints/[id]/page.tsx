@@ -202,7 +202,7 @@ export default function ComplaintDetailPage({
                 height="100%"
                 style={{ border: 0 }}
                 loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${complaint.longitude - 0.005},${complaint.latitude - 0.005},${complaint.longitude + 0.005},${complaint.latitude + 0.005}&layer=mapnik&marker=${complaint.latitude},${complaint.longitude}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(complaint.longitude) - 0.003},${Number(complaint.latitude) - 0.002},${Number(complaint.longitude) + 0.003},${Number(complaint.latitude) + 0.002}&layer=mapnik&marker=${Number(complaint.latitude)},${Number(complaint.longitude)}`}
               />
             </div>
             <div className="flex items-center gap-3 mt-3">
