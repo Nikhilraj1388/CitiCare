@@ -22,9 +22,8 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isLoggingIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -35,15 +34,12 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginForm) => {
-    setIsSubmitting(true);
     try {
       await login(data.email, data.password);
       toast.success("Welcome back!");
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || "Login failed");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -120,10 +116,10 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLoggingIn}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11"
             >
-              {isSubmitting ? (
+              {isLoggingIn ? (
                 <span className="flex items-center gap-2">
                   <LoadingSpinner size="sm" className="text-white" />
                   Signing in...

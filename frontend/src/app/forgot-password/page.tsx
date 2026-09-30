@@ -9,26 +9,31 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/page-loader";
 import { toast } from "sonner";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
-import api from "@/lib/axios";
+import { useForgotPasswordMutation } from "@/hooks/use-user-query";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const forgotPasswordMutation = useForgotPasswordMutation();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) { toast.error("Please enter your email"); return; }
-    setLoading(true);
-    try {
-      await api.post("/auth/forgot-password", { email });
-      setSent(true);
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
+    if (!email) {
+      toast.error("Please enter your email");
+      return;
     }
+    forgotPasswordMutation.mutate(email, {
+      onSuccess: () => {
+        setSent(true);
+      },
+      onError: (err: unknown) => {
+        const error = err as { response?: { data?: { message?: string } } };
+        toast.error(error.response?.data?.message || "Something went wrong");
+      },
+    });
   };
+
+  const loading = forgotPasswordMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -5,11 +5,16 @@ import {
   useContext,
   useState,
   useEffect,
-  useCallback,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { authService } from "@/services/auth.service";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useProfileQuery,
+  useLoginMutation,
+  useRegisterMutation,
+} from "@/hooks/use-user-query";
+import { queryKeys } from "@/lib/query-keys";
 import type { User } from "@/types";
 
 interface AuthContextType {
@@ -17,6 +22,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isLoggingIn: boolean;
+  isRegistering: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: {
     fullName: string;
@@ -31,47 +38,51 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState<string | null>(null);
+  const [tokenLoaded, setTokenLoaded] = useState(false);
 
-  const loadUser = useCallback(async () => {
-    const savedToken =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-    if (!savedToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    setToken(savedToken);
-
-    try {
-      const res = await authService.getProfile();
-      setUser(res.data as User);
-    } catch {
-      localStorage.removeItem("token");
-      setToken(null);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    const savedToken =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const timer = setTimeout(() => {
+      setToken(savedToken);
+      setTokenLoaded(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const {
+    data: profileData,
+    isLoading: isProfileLoading,
+    isError,
+  } = useProfileQuery({
+    enabled: tokenLoaded && !!token,
+  });
+
+  useEffect(() => {
+    if (isError && token) {
+      localStorage.removeItem("token");
+      queryClient.setQueryData(queryKeys.auth.profile(), null);
+      const timer = setTimeout(() => setToken(null), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isError, token, queryClient]);
+
+  const user = token ? (profileData ?? null) : null;
+  const isLoading = !tokenLoaded || (!!token && isProfileLoading);
 
   const login = async (email: string, password: string) => {
-    const res = await authService.login({ email, password });
-    const { user: loggedInUser, token: newToken } = res.data as {
+    const res = await loginMutation.mutateAsync({ email, password });
+    const { token: newToken } = res.data as {
       user: User;
       token: string;
     };
-    localStorage.setItem("token", newToken);
     setToken(newToken);
-    setUser(loggedInUser);
     router.push("/dashboard");
   };
 
@@ -81,27 +92,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone: string;
     password: string;
   }) => {
-    const res = await authService.register(data);
-    const { user: newUser, token: newToken } = res.data as {
+    const res = await registerMutation.mutateAsync(data);
+    const { token: newToken } = res.data as {
       user: User;
       token: string;
     };
-    localStorage.setItem("token", newToken);
     setToken(newToken);
-    setUser(newUser);
     router.push("/dashboard");
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     setToken(null);
-    setUser(null);
+    queryClient.clear();
+    queryClient.setQueryData(queryKeys.auth.profile(), null);
     router.push("/login");
   };
 
   const refreshUser = async () => {
-    const res = await authService.getProfile();
-    setUser(res.data as User);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile() });
   };
 
   return (
@@ -111,6 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!user,
+        isLoggingIn: loginMutation.isPending,
+        isRegistering: registerMutation.isPending,
         login,
         register,
         logout,
@@ -129,3 +140,4 @@ export function useAuth() {
   }
   return context;
 }
+

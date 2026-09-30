@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatCard } from "@/components/stat-card";
@@ -19,83 +19,84 @@ import {
   Plus,
   ChevronRight,
 } from "lucide-react";
-import { complaintService } from "@/services/complaint.service";
-import { adminService } from "@/services/admin.service";
-import type { Complaint, ComplaintStatus } from "@/types";
+import { useMyComplaintsQuery, useAllComplaintsQuery } from "@/hooks/use-complaints-query";
+import { useAdminStatsQuery } from "@/hooks/use-admin-query";
+import type { ComplaintStatus } from "@/types";
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [stats, setStats] = useState({ total: 0, pending: 0, resolved: 0, reopened: 0 });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/login");
   }, [isLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
+  const isCitizen = user?.role === "CITIZEN";
+  const isOfficial = user?.role === "OFFICIAL";
+  const isAdmin = user?.role === "ADMIN";
 
-    const loadData = async () => {
-      try {
-        if (user.role === "CITIZEN") {
-          const res = await complaintService.getMyComplaints(1, 5);
-          const data = res.data as { complaints: Complaint[]; pagination: { total: number } };
-          setComplaints(data.complaints);
+  const { data: citizenData, isLoading: citizenLoading } = useMyComplaintsQuery(
+    { page: 1, limit: 100 },
+    { enabled: isAuthenticated && isCitizen }
+  );
 
-          // Calculate stats from complaints
-          const allRes = await complaintService.getMyComplaints(1, 100);
-          const all = (allRes.data as { complaints: Complaint[] }).complaints;
-          setStats({
-            total: all.length,
-            pending: all.filter((c) => ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS"].includes(c.status)).length,
-            resolved: all.filter((c) => c.status === "RESOLVED").length,
-            reopened: all.filter((c) => c.status === "REOPENED").length,
-          });
-        } else if (user.role === "OFFICIAL") {
-          // Official — use assigned complaints list
-          const res = await complaintService.getAll(1, 100);
-          const data = res.data as { complaints: Complaint[] };
-          const all = data.complaints || [];
-          setComplaints(all.slice(0, 5));
-          setStats({
-            total: all.length,
-            pending: all.filter((c) => ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS"].includes(c.status)).length,
-            resolved: all.filter((c) => c.status === "RESOLVED").length,
-            reopened: all.filter((c) => c.status === "REOPENED").length,
-          });
-        } else {
-          // Admin — use admin stats
-          const res = await adminService.getStats();
-          const data = res.data as {
-            totalComplaints: number;
-            submitted: number;
-            underReview: number;
-            inProgress: number;
-            resolved: number;
-            reopened: number;
-            recentComplaints: Complaint[];
-          };
-          setStats({
-            total: data.totalComplaints,
-            pending: data.submitted + data.underReview + data.inProgress,
-            resolved: data.resolved,
-            reopened: data.reopened,
-          });
-          setComplaints(data.recentComplaints || []);
-        }
-      } catch {
-        // silently handle
-      } finally {
-        setLoading(false);
-      }
+  const { data: officialData, isLoading: officialLoading } = useAllComplaintsQuery(
+    { page: 1, limit: 100 },
+    { enabled: isAuthenticated && isOfficial }
+  );
+
+  const { data: adminStats, isLoading: adminLoading } = useAdminStatsQuery({
+    enabled: isAuthenticated && isAdmin,
+  });
+
+  const loading = isCitizen
+    ? citizenLoading
+    : isOfficial
+    ? officialLoading
+    : adminLoading;
+
+  const { complaints, stats } = useMemo(() => {
+    if (isCitizen) {
+      const all = citizenData?.complaints || [];
+      return {
+        complaints: all.slice(0, 5),
+        stats: {
+          total: all.length,
+          pending: all.filter((c) => ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS"].includes(c.status)).length,
+          resolved: all.filter((c) => c.status === "RESOLVED").length,
+          reopened: all.filter((c) => c.status === "REOPENED").length,
+        },
+      };
+    } else if (isOfficial) {
+      const all = officialData?.complaints || [];
+      return {
+        complaints: all.slice(0, 5),
+        stats: {
+          total: all.length,
+          pending: all.filter((c) => ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS"].includes(c.status)).length,
+          resolved: all.filter((c) => c.status === "RESOLVED").length,
+          reopened: all.filter((c) => c.status === "REOPENED").length,
+        },
+      };
+    } else if (isAdmin && adminStats) {
+      return {
+        complaints: adminStats.recentComplaints || [],
+        stats: {
+          total: adminStats.totalComplaints,
+          pending: adminStats.submitted + adminStats.underReview + adminStats.inProgress,
+          resolved: adminStats.resolved,
+          reopened: adminStats.reopened,
+        },
+      };
+    }
+    return {
+      complaints: [],
+      stats: { total: 0, pending: 0, resolved: 0, reopened: 0 },
     };
-
-    loadData();
-  }, [isAuthenticated, user]);
+  }, [isCitizen, isOfficial, isAdmin, citizenData, officialData, adminStats]);
 
   if (isLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout

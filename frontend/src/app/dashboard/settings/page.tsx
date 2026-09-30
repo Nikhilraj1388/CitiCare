@@ -1,32 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useDepartmentsQuery } from "@/hooks/use-admin-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageLoader } from "@/components/page-loader";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
 import { Settings, Building2, Globe, Clock } from "lucide-react";
-import { adminService } from "@/services/admin.service";
-
-interface Department {
-  id: string;
-  name: string;
-  code: string;
-  description: string;
-  _count: { departmentUsers: number; complaints: number };
-}
 
 export default function SettingsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "ADMIN")) {
@@ -34,17 +22,12 @@ export default function SettingsPage() {
     }
   }, [authLoading, isAuthenticated, user, router]);
 
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "ADMIN") {
-      adminService
-        .getDepartments()
-        .then((res) => setDepartments(res.data as Department[]))
-        .catch(() => toast.error("Failed to load departments"))
-        .finally(() => setLoading(false));
-    }
-  }, [isAuthenticated, user]);
+  const { data: departments = [], isLoading: loading } = useDepartmentsQuery({
+    enabled: isAuthenticated && user?.role === "ADMIN",
+  });
 
   if (authLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout role="ADMIN" userName={user.fullName}>

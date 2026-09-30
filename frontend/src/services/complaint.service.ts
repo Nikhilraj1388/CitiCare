@@ -1,15 +1,11 @@
 import api from "@/lib/axios";
-import type { ApiResponse, Complaint, ComplaintCategory } from "@/types";
-
-interface ComplaintListResponse {
-  complaints: Complaint[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import type {
+  ApiResponse,
+  Complaint,
+  ComplaintCategory,
+  ComplaintListResponse,
+  MapComplaint,
+} from "@/types";
 
 export const complaintService = {
   async getCategories(): Promise<ApiResponse<ComplaintCategory[]>> {
@@ -68,4 +64,26 @@ export const complaintService = {
     const res = await api.get(`/complaints?${params}`);
     return res.data;
   },
+
+  async getMap(): Promise<ApiResponse<MapComplaint[]>> {
+    const res = await api.get("/complaints/map");
+    return res.data;
+  },
+
+  async updateStatus(
+    id: string,
+    status: string,
+    remarks?: string
+  ): Promise<ApiResponse<unknown>> {
+    const res = await api.put(`/complaints/${id}/status`, { status, remarks });
+    return res.data;
+  },
+
+  async uploadImages(formData: FormData): Promise<ApiResponse<{ urls: string[] }>> {
+    const res = await api.post("/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
 };
+

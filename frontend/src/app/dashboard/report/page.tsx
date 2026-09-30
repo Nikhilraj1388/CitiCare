@@ -6,7 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { complaintService } from "@/services/complaint.service";
+import {
+  useCategoriesQuery,
+  useCreateComplaintMutation,
+  useUploadImagesMutation,
+} from "@/hooks/use-complaints-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageLoader, LoadingSpinner } from "@/components/page-loader";
 import { CategoryIcon } from "@/components/category-icon";
@@ -16,8 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { MapPin, Send, ImagePlus, X } from "lucide-react";
-import type { ComplaintCategory } from "@/types";
-import api from "@/lib/axios";
 
 const complaintSchema = z.object({
   categoryId: z.string().min(1, "Please select a category"),
@@ -34,7 +36,9 @@ type ComplaintForm = z.infer<typeof complaintSchema>;
 export default function ReportPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [categories, setCategories] = useState<ComplaintCategory[]>([]);
+  const { data: categories = [] } = useCategoriesQuery();
+  const createMutation = useCreateComplaintMutation();
+  const uploadImagesMutation = useUploadImagesMutation();
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [location, setLocation] = useState<{
@@ -44,7 +48,6 @@ export default function ReportPage() {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
 
   const {
     register,
@@ -61,11 +64,6 @@ export default function ReportPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    complaintService.getCategories().then((res) => {
-      setCategories(res.data as ComplaintCategory[]);
-    });
-  }, []);
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -113,17 +111,13 @@ export default function ReportPage() {
 
       // Upload images first if any
       if (imageFiles.length > 0) {
-        setUploadingImages(true);
         const formData = new FormData();
         imageFiles.forEach((f) => formData.append("images", f));
-        const uploadRes = await api.post("/upload", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        imageUrls = (uploadRes.data.data as { urls: string[] }).urls;
-        setUploadingImages(false);
+        const uploadRes = await uploadImagesMutation.mutateAsync(formData);
+        imageUrls = (uploadRes.data as { urls: string[] })?.urls || [];
       }
 
-      await complaintService.create({
+      await createMutation.mutateAsync({
         categoryId: data.categoryId,
         title: data.title,
         description: data.description,
@@ -139,7 +133,6 @@ export default function ReportPage() {
       toast.error(err.response?.data?.message || "Failed to submit complaint");
     } finally {
       setIsSubmitting(false);
-      setUploadingImages(false);
     }
   };
 
@@ -265,6 +258,7 @@ export default function ReportPage() {
             <div className="flex items-center gap-3 flex-wrap">
               {imagePreviews.map((src, i) => (
                 <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"

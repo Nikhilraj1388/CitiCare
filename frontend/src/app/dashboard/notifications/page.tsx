@@ -1,24 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  useNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+} from "@/hooks/use-notifications-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageLoader } from "@/components/page-loader";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BellOff, Check, CheckCheck, Info, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
-import api from "@/lib/axios";
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  type: "SUCCESS" | "INFO" | "WARNING" | "ERROR";
-  isRead: boolean;
-  createdAt: string;
-}
 
 const typeConfig = {
   SUCCESS: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
@@ -30,58 +25,32 @@ const typeConfig = {
 export default function NotificationsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push("/login");
   }, [authLoading, isAuthenticated, router]);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/notifications");
-      const data = res.data.data as {
-        notifications: NotificationItem[];
-        unreadCount: number;
-      };
-      setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
-    } catch {
-      // silently handle
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, isLoading: queryLoading } = useNotificationsQuery({
+    enabled: isAuthenticated,
+  });
 
-  useEffect(() => {
-    if (isAuthenticated) fetchNotifications();
-  }, [isAuthenticated, fetchNotifications]);
+  const markReadMutation = useMarkNotificationReadMutation();
+  const markAllReadMutation = useMarkAllNotificationsReadMutation();
 
-  const markAsRead = async (id: string) => {
-    try {
-      await api.put(`/notifications/${id}/read`);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-    } catch {
-      // silently handle
-    }
+  const notifications = data?.notifications || [];
+  const unreadCount = data?.unreadCount || 0;
+  const loading = queryLoading;
+
+  const markAsRead = (id: string) => {
+    markReadMutation.mutate(id);
   };
 
-  const markAllRead = async () => {
-    try {
-      await api.put("/notifications/read-all");
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-    } catch {
-      // silently handle
-    }
+  const markAllRead = () => {
+    markAllReadMutation.mutate();
   };
 
   if (authLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout

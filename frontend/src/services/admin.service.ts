@@ -1,32 +1,5 @@
 import api from "@/lib/axios";
-import type { ApiResponse } from "@/types";
-
-interface DashboardStats {
-  totalUsers: number;
-  totalComplaints: number;
-  submitted: number;
-  underReview: number;
-  inProgress: number;
-  resolved: number;
-  reopened: number;
-  resolutionRate: number;
-  categoryStats: { category: string; count: number }[];
-  recentComplaints: unknown[];
-}
-
-interface UserListResponse {
-  users: {
-    id: string;
-    fullName: string;
-    email: string;
-    phone: string;
-    role: string;
-    isActive: boolean;
-    createdAt: string;
-    _count: { complaints: number };
-  }[];
-  pagination: { page: number; limit: number; total: number; totalPages: number };
-}
+import type { ApiResponse, DashboardStats, UserListResponse } from "@/types";
 
 export const adminService = {
   async getStats(): Promise<ApiResponse<DashboardStats>> {

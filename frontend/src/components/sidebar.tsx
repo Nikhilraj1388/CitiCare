@@ -19,10 +19,6 @@ import {
   Settings,
   BarChart3,
   Users,
-  Building2,
-  FileText,
-  Shield,
-  Timer,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/types";

@@ -1,53 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { adminService } from "@/services/admin.service";
+import { useAdminStatsQuery } from "@/hooks/use-admin-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatCard } from "@/components/stat-card";
 import { PageLoader } from "@/components/page-loader";
 import { StatusBadge } from "@/components/status-badge";
-import { toast } from "sonner";
 import {
   Users,
   ClipboardList,
   CheckCircle2,
   Clock,
-  AlertTriangle,
   TrendingUp,
   BarChart3,
   Eye,
 } from "lucide-react";
 import type { ComplaintStatus } from "@/types";
 
-interface DashboardStats {
-  totalUsers: number;
-  totalComplaints: number;
-  submitted: number;
-  underReview: number;
-  inProgress: number;
-  resolved: number;
-  reopened: number;
-  resolutionRate: number;
-  categoryStats: { category: string; count: number }[];
-  recentComplaints: {
-    id: string;
-    complaintNumber: string;
-    title: string;
-    status: string;
-    createdAt: string;
-    citizen?: { fullName: string };
-    category?: { name: string };
-    department?: { name: string };
-  }[];
-}
-
 export default function AnalyticsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || !["OFFICIAL", "ADMIN"].includes(user?.role || ""))) {
@@ -55,18 +29,15 @@ export default function AnalyticsPage() {
     }
   }, [authLoading, isAuthenticated, user, router]);
 
-  useEffect(() => {
-    if (isAuthenticated && ["OFFICIAL", "ADMIN"].includes(user?.role || "")) {
-      adminService
-        .getStats()
-        .then((res) => setStats(res.data as DashboardStats))
-        .catch(() => toast.error("Failed to load stats"))
-        .finally(() => setLoading(false));
-    }
-  }, [isAuthenticated, user]);
+  const { data: stats, isLoading: statsLoading } = useAdminStatsQuery({
+    enabled: isAuthenticated && ["OFFICIAL", "ADMIN"].includes(user?.role || ""),
+  });
+
+  const loading = statsLoading;
 
   if (authLoading || !user || loading) return <PageLoader />;
   if (!stats) return <PageLoader text="No data available" />;
+
 
   return (
     <DashboardLayout

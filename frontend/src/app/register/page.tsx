@@ -33,9 +33,8 @@ const registerSchema = z.object({
 type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, isRegistering } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -46,15 +45,12 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (data: RegisterForm) => {
-    setIsSubmitting(true);
     try {
       await registerUser(data);
       toast.success("Account created successfully!");
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || "Registration failed");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -185,10 +181,10 @@ export default function RegisterPage() {
 
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isRegistering}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11"
             >
-              {isSubmitting ? (
+              {isRegistering ? (
                 <span className="flex items-center gap-2">
                   <LoadingSpinner size="sm" className="text-white" />
                   Creating account...

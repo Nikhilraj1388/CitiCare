@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { complaintService } from "@/services/complaint.service";
+import {
+  useAllComplaintsQuery,
+  useUpdateComplaintStatusMutation,
+} from "@/hooks/use-complaints-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatusBadge } from "@/components/status-badge";
 import { CategoryIcon } from "@/components/category-icon";
@@ -21,8 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ClipboardList, ChevronRight, Clock, User } from "lucide-react";
-import type { Complaint, ComplaintStatus } from "@/types";
-import api from "@/lib/axios";
+import type { ComplaintStatus } from "@/types";
 
 const statusOptions = [
   { label: "All", value: "ALL" },
@@ -36,11 +38,8 @@ const statusOptions = [
 export default function OfficialAssignedPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,52 +48,46 @@ export default function OfficialAssignedPage() {
     }
   }, [authLoading, isAuthenticated, user, router]);
 
-  const fetchComplaints = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: "10",
-      });
-      if (statusFilter !== "ALL") params.append("status", statusFilter);
-
-      const res = await api.get(`/complaints?${params}`);
-      const data = res.data.data as {
-        complaints: Complaint[];
-        pagination: { totalPages: number };
-      };
-      setComplaints(data.complaints);
-      setTotalPages(data.pagination.totalPages);
-    } catch {
-      toast.error("Failed to load complaints");
-    } finally {
-      setLoading(false);
+  const { data, isLoading: queryLoading } = useAllComplaintsQuery(
+    {
+      page,
+      limit: 10,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+    },
+    {
+      enabled: isAuthenticated && ["OFFICIAL", "ADMIN"].includes(user?.role || ""),
     }
-  }, [page, statusFilter]);
+  );
 
-  useEffect(() => {
-    if (isAuthenticated && ["OFFICIAL", "ADMIN"].includes(user?.role || "")) {
-      fetchComplaints();
-    }
-  }, [isAuthenticated, user, fetchComplaints]);
+  const updateStatusMutation = useUpdateComplaintStatusMutation();
+
+  const complaints = data?.complaints || [];
+  const totalPages = data?.pagination?.totalPages || 1;
+  const loading = queryLoading;
 
   const handleStatusUpdate = async (complaintId: string, newStatus: string) => {
     setUpdatingId(complaintId);
-    try {
-      await api.put(`/complaints/${complaintId}/status`, {
+    updateStatusMutation.mutate(
+      {
+        id: complaintId,
         status: newStatus,
         remarks: `Status updated to ${newStatus.replace("_", " ").toLowerCase()}`,
-      });
-      toast.success("Status updated");
-      fetchComplaints();
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setUpdatingId(null);
-    }
+      },
+      {
+        onSuccess: () => {
+          toast.success("Status updated");
+          setUpdatingId(null);
+        },
+        onError: () => {
+          toast.error("Failed to update status");
+          setUpdatingId(null);
+        },
+      }
+    );
   };
 
   if (authLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout

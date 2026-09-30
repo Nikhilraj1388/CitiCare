@@ -25,8 +25,8 @@ import {
   Settings,
   User,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
+import { useNotificationsQuery } from "@/hooks/use-notifications-query";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -43,6 +43,8 @@ export function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const { logout } = useAuth();
+  const { data: notifData } = useNotificationsQuery();
+  const hasUnread = (notifData?.unreadCount ?? 0) > 0;
 
   const initials = userName
     .split(" ")
@@ -111,7 +113,9 @@ export function DashboardLayout({
             <Link href="/dashboard/notifications">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5 text-gray-500" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full" />
+                {hasUnread && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                )}
               </Button>
             </Link>
 

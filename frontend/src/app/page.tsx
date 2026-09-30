@@ -17,6 +17,7 @@ import {
   Activity,
   ChevronRight,
 } from "lucide-react";
+import { useCategoriesQuery } from "@/hooks/use-complaints-query";
 
 const stats = [
   {
@@ -75,7 +76,19 @@ const steps = [
   },
 ];
 
-const categories = [
+const defaultCategoryDescriptions: Record<string, string> = {
+  "Road Damage": "Potholes, cracks, damaged asphalt, and missing curb stones",
+  "Garbage": "Overflowing bins, uncollected waste, and illegal dumping sites",
+  "Street Light": "Flickering, non-functional, or damaged street light fixtures",
+  "Water Leakage": "Burst pipelines, main valve leaks, and potable water wastage",
+  "Sewage": "Overflowing drains, blocked sewer lines, and foul odors",
+  "Tree Hazard": "Fallen branches, overgrown trees blocking signals or power lines",
+  "Public Facility Damage": "Vandalized park benches, broken bus shelters, and public toilets",
+  "Encroachment": "Unauthorized construction, illegal street stalls blocking paths",
+  "Other": "General municipal complaints, safety hazards, and suggestions",
+};
+
+const defaultCategories = [
   {
     name: "Road Damage",
     desc: "Potholes, cracks, damaged asphalt, and missing curb stones",
@@ -115,6 +128,14 @@ const categories = [
 ];
 
 export default function Home() {
+  const { data: serverCategories } = useCategoriesQuery();
+
+  const displayCategories = (serverCategories && serverCategories.length > 0)
+    ? serverCategories.map((c) => ({
+        name: c.name,
+        desc: defaultCategoryDescriptions[c.name] || "Civic infrastructure issue",
+      }))
+    : defaultCategories;
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden">
       {/* Top Header / Navigation */}
@@ -394,7 +415,7 @@ export default function Home() {
 
           {/* 9 Categories Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat, idx) => (
+            {displayCategories.map((cat, idx) => (
               <div
                 key={idx}
                 className="group relative rounded-2xl bg-slate-950/80 border border-slate-800/90 p-6 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-950/40 hover:-translate-y-1 flex flex-col justify-between"

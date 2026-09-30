@@ -109,3 +109,76 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
 }
+
+// Pagination
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+// Complaint List Response
+export interface ComplaintListResponse {
+  complaints: Complaint[];
+  pagination: Pagination;
+}
+
+// Map Complaint
+export interface MapComplaint {
+  id: string;
+  complaintNumber: string;
+  title: string;
+  status: ComplaintStatus;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  createdAt: string;
+  category?: { name: string; icon?: string };
+  department?: { name: string };
+}
+
+// Dashboard Stats
+export interface DashboardStats {
+  totalUsers: number;
+  totalComplaints: number;
+  submitted: number;
+  underReview: number;
+  inProgress: number;
+  resolved: number;
+  reopened: number;
+  resolutionRate: number;
+  categoryStats: { category: string; count: number }[];
+  recentComplaints: Complaint[];
+  departmentName?: string;
+}
+
+// User List Row
+export interface UserRow {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  _count: { complaints: number };
+  departmentUsers?: { department: { id: string; name: string } }[];
+}
+
+// User List Response
+export interface UserListResponse {
+  users: UserRow[];
+  pagination: Pagination;
+}
+
+// Department with count
+export interface DepartmentWithCount extends Department {
+  _count: { departmentUsers: number; complaints: number };
+}
+
+// Notification List Response
+export interface NotificationListResponse {
+  notifications: Notification[];
+  unreadCount: number;
+}

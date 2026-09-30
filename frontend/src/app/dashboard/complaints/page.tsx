@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { complaintService } from "@/services/complaint.service";
+import { useMyComplaintsQuery } from "@/hooks/use-complaints-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatusBadge } from "@/components/status-badge";
 import { CategoryIcon } from "@/components/category-icon";
@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileWarning, ChevronRight, Plus, Clock } from "lucide-react";
-import type { Complaint, ComplaintStatus } from "@/types";
+import type { ComplaintStatus } from "@/types";
 
 const statusOptions = [
   { label: "All", value: "ALL" },
@@ -33,42 +33,28 @@ const statusOptions = [
 export default function MyComplaintsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push("/login");
   }, [authLoading, isAuthenticated, router]);
 
-  const fetchComplaints = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await complaintService.getMyComplaints(
-        page,
-        10,
-        statusFilter === "ALL" ? undefined : statusFilter
-      );
-      const data = res.data as {
-        complaints: Complaint[];
-        pagination: { totalPages: number };
-      };
-      setComplaints(data.complaints);
-      setTotalPages(data.pagination.totalPages);
-    } catch {
-      // silently handle
-    } finally {
-      setLoading(false);
-    }
-  }, [page, statusFilter]);
+  const { data, isLoading: queryLoading } = useMyComplaintsQuery(
+    {
+      page,
+      limit: 10,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+    },
+    { enabled: isAuthenticated }
+  );
 
-  useEffect(() => {
-    if (isAuthenticated) fetchComplaints();
-  }, [isAuthenticated, fetchComplaints]);
+  const complaints = data?.complaints || [];
+  const totalPages = data?.pagination?.totalPages || 1;
+  const loading = queryLoading;
 
   if (authLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout

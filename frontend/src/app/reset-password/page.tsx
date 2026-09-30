@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner, PageLoader } from "@/components/page-loader";
 import { toast } from "sonner";
 import { Lock, CheckCircle2 } from "lucide-react";
-import api from "@/lib/axios";
+import { useResetPasswordMutation } from "@/hooks/use-user-query";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -18,8 +18,8 @@ function ResetPasswordForm() {
   const token = searchParams.get("token");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const resetPasswordMutation = useResetPasswordMutation();
 
   if (!token) {
     return (
@@ -33,21 +33,25 @@ function ResetPasswordForm() {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     if (password !== confirmPassword) { toast.error("Passwords don't match"); return; }
-    setLoading(true);
-    try {
-      await api.post("/auth/reset-password", { token, password });
-      setSuccess(true);
-      setTimeout(() => router.push("/login"), 3000);
-    } catch {
-      toast.error("Reset token is invalid or expired");
-    } finally {
-      setLoading(false);
-    }
+    resetPasswordMutation.mutate(
+      { token, password },
+      {
+        onSuccess: () => {
+          setSuccess(true);
+          setTimeout(() => router.push("/login"), 3000);
+        },
+        onError: () => {
+          toast.error("Reset token is invalid or expired");
+        },
+      }
+    );
   };
+
+  const loading = resetPasswordMutation.isPending;
 
   if (success) {
     return (

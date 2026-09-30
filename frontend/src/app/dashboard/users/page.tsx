@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { adminService } from "@/services/admin.service";
+import {
+  useAdminUsersQuery,
+  useDepartmentsQuery,
+  useToggleUserStatusMutation,
+  useChangeUserRoleMutation,
+  useAssignDepartmentMutation,
+  useCreateUserMutation,
+} from "@/hooks/use-admin-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageLoader } from "@/components/page-loader";
 import { EmptyState } from "@/components/empty-state";
@@ -35,39 +42,25 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Search, Users, ShieldCheck, ShieldOff, Plus } from "lucide-react";
-
-interface UserRow {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: string;
-  isActive: boolean;
-  createdAt: string;
-  _count: { complaints: number };
-  departmentUsers?: { department: { id: string; name: string } }[];
-}
-
-interface Department {
-  id: string;
-  name: string;
-}
+import type { UserRow } from "@/types";
 
 export default function AdminUsersPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [userDepartments, setUserDepartments] = useState<Record<string, string>>({});
   const [assigningDept, setAssigningDept] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ fullName: '', email: '', phone: '', password: '', role: 'CITIZEN', departmentId: '' });
-  const [creating, setCreating] = useState(false);
+  const [newUser, setNewUser] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "CITIZEN",
+    departmentId: "",
+  });
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "ADMIN")) {
@@ -75,129 +68,109 @@ export default function AdminUsersPage() {
     }
   }, [authLoading, isAuthenticated, user, router]);
 
-  // Load departments once on mount
-  useEffect(() => {
-    const loadDepartments = async () => {
-      try {
-        const res = await adminService.getDepartments();
-        setDepartments(res.data as Department[]);
-      } catch {
-        // Departments will just be empty if this fails
-      }
-    };
-    if (isAuthenticated && user?.role === "ADMIN") {
-      loadDepartments();
-    }
-  }, [isAuthenticated, user]);
+  const { data: usersData, isLoading: usersLoading } = useAdminUsersQuery(
+    { page, limit: 10, role: roleFilter, search },
+    { enabled: isAuthenticated && user?.role === "ADMIN" }
+  );
 
-  // Fetch departments for all OFFICIAL users
-  const fetchUserDepartments = useCallback(async (usersList: UserRow[]) => {
-    const officials = usersList.filter((u) => u.role === "OFFICIAL");
-    const deptMap: Record<string, string> = {};
-    await Promise.allSettled(
-      officials.map(async (u) => {
-        try {
-          const res = await adminService.getUserDepartments(u.id);
-          const data = res.data as { department: { id: string; name: string } }[];
-          if (Array.isArray(data) && data.length > 0) {
-            deptMap[u.id] = data[0].department.id;
-          }
-        } catch {
-          // ignore individual failures
-        }
-      })
+  const { data: departments = [] } = useDepartmentsQuery({
+    enabled: isAuthenticated && user?.role === "ADMIN",
+  });
+
+  const toggleStatusMutation = useToggleUserStatusMutation();
+  const changeRoleMutation = useChangeUserRoleMutation();
+  const assignDeptMutation = useAssignDepartmentMutation();
+  const createUserMutation = useCreateUserMutation();
+
+  const users = usersData?.users || [];
+  const totalPages = usersData?.pagination?.totalPages || 1;
+  const loading = usersLoading;
+
+  const handleToggleStatus = (userId: string) => {
+    toggleStatusMutation.mutate(userId, {
+      onSuccess: () => toast.success("User status updated"),
+      onError: () => toast.error("Failed to update status"),
+    });
+  };
+
+  const handleRoleChange = (userId: string, role: string) => {
+    changeRoleMutation.mutate(
+      { userId, role },
+      {
+        onSuccess: () => toast.success("Role updated"),
+        onError: () => toast.error("Failed to update role"),
+      }
     );
-    setUserDepartments(deptMap);
-  }, []);
-
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await adminService.getUsers(
-        page, 10,
-        roleFilter === "ALL" ? undefined : roleFilter,
-        search || undefined
-      );
-      const data = res.data as { users: UserRow[]; pagination: { totalPages: number } };
-      setUsers(data.users);
-      setTotalPages(data.pagination.totalPages);
-      fetchUserDepartments(data.users);
-    } catch {
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, roleFilter, search, fetchUserDepartments]);
-
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "ADMIN") fetchUsers();
-  }, [isAuthenticated, user, fetchUsers]);
-
-  const handleToggleStatus = async (userId: string) => {
-    try {
-      await adminService.toggleUserStatus(userId);
-      toast.success("User status updated");
-      fetchUsers();
-    } catch { toast.error("Failed to update status"); }
   };
 
-  const handleRoleChange = async (userId: string, role: string) => {
-    try {
-      await adminService.changeUserRole(userId, role);
-      toast.success("Role updated");
-      fetchUsers();
-    } catch { toast.error("Failed to update role"); }
-  };
-
-  const handleAssignDepartment = async (userId: string, departmentId: string) => {
+  const handleAssignDepartment = (userId: string, departmentId: string) => {
     setAssigningDept(userId);
-    try {
-      // If user already has a department, remove it first
-      const currentDeptId = userDepartments[userId];
-      if (currentDeptId) {
-        await adminService.removeDepartment(userId, currentDeptId);
+    const currentDeptId =
+      userDepartments[userId] ||
+      users.find((u) => u.id === userId)?.departmentUsers?.[0]?.department?.id;
+    assignDeptMutation.mutate(
+      { userId, departmentId, currentDepartmentId: currentDeptId },
+      {
+        onSuccess: () => {
+          setUserDepartments((prev) => ({ ...prev, [userId]: departmentId }));
+          toast.success("Department assigned successfully");
+          setAssigningDept(null);
+        },
+        onError: () => {
+          toast.error("Failed to assign department");
+          setAssigningDept(null);
+        },
       }
-      await adminService.assignDepartment(userId, departmentId);
-      setUserDepartments((prev) => ({ ...prev, [userId]: departmentId }));
-      toast.success("Department assigned successfully");
-    } catch {
-      toast.error("Failed to assign department");
-    } finally {
-      setAssigningDept(null);
-    }
+    );
   };
 
-  const getDepartmentName = (userId: string): string | null => {
-    const deptId = userDepartments[userId];
+  const getDepartmentName = (u: UserRow): string | null => {
+    const deptId = userDepartments[u.id] || u.departmentUsers?.[0]?.department?.id;
     if (!deptId) return null;
     const dept = departments.find((d) => d.id === deptId);
-    return dept?.name || null;
+    return dept?.name || u.departmentUsers?.[0]?.department?.name || null;
   };
 
-  const handleCreateUser = async () => {
+  const getDepartmentId = (u: UserRow): string | undefined => {
+    return userDepartments[u.id] || u.departmentUsers?.[0]?.department?.id || undefined;
+  };
+
+  const handleCreateUser = () => {
     if (!newUser.fullName || !newUser.email || !newUser.password) {
-      toast.error('Please fill all required fields');
+      toast.error("Please fill all required fields");
       return;
     }
-    setCreating(true);
-    try {
-      await adminService.createUser({
+    createUserMutation.mutate(
+      {
         ...newUser,
-        departmentId: newUser.role === 'OFFICIAL' && newUser.departmentId ? newUser.departmentId : undefined,
-      });
-      toast.success('User created successfully');
-      setAddDialogOpen(false);
-      setNewUser({ fullName: '', email: '', phone: '', password: '', role: 'CITIZEN', departmentId: '' });
-      fetchUsers();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      toast.error(error.response?.data?.message || 'Failed to create user');
-    } finally {
-      setCreating(false);
-    }
+        departmentId:
+          newUser.role === "OFFICIAL" && newUser.departmentId
+            ? newUser.departmentId
+            : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("User created successfully");
+          setAddDialogOpen(false);
+          setNewUser({
+            fullName: "",
+            email: "",
+            phone: "",
+            password: "",
+            role: "CITIZEN",
+            departmentId: "",
+          });
+        },
+        onError: (err: unknown) => {
+          const error = err as { response?: { data?: { message?: string } } };
+          toast.error(error.response?.data?.message || "Failed to create user");
+        },
+      }
+    );
   };
 
   if (authLoading || !user) return <PageLoader />;
+
 
   return (
     <DashboardLayout role="ADMIN" userName={user.fullName}>
@@ -249,7 +222,7 @@ export default function AdminUsersPage() {
                 {newUser.role === 'OFFICIAL' && (
                   <div className="space-y-2">
                     <Label>Department</Label>
-                    <Select value={newUser.departmentId} onValueChange={(v) => setNewUser({...newUser, departmentId: v})}>
+                    <Select value={newUser.departmentId || undefined} onValueChange={(v) => setNewUser({...newUser, departmentId: v})}>
                       <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
                         {departments.map((d) => (
@@ -259,8 +232,8 @@ export default function AdminUsersPage() {
                     </Select>
                   </div>
                 )}
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateUser} disabled={creating}>
-                  {creating ? 'Creating...' : 'Create User'}
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateUser} disabled={createUserMutation.isPending}>
+                  {createUserMutation.isPending ? 'Creating...' : 'Create User'}
                 </Button>
               </div>
             </DialogContent>
@@ -333,16 +306,16 @@ export default function AdminUsersPage() {
                     <TableCell>
                       {u.role === "OFFICIAL" ? (
                         <div className="flex flex-col gap-1.5">
-                          {getDepartmentName(u.id) && (
+                          {getDepartmentName(u) && (
                             <Badge
                               variant="secondary"
                               className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs w-fit"
                             >
-                              {getDepartmentName(u.id)}
+                              {getDepartmentName(u)}
                             </Badge>
                           )}
                           <Select
-                            value={userDepartments[u.id] || ""}
+                            value={getDepartmentId(u)}
                             onValueChange={(deptId) => handleAssignDepartment(u.id, deptId)}
                             disabled={assigningDept === u.id}
                           >

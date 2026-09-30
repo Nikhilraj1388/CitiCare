@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { Navbar } from "@/components/navbar";
 import { StatusBadge } from "@/components/status-badge";
@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { MapPin, Search, Filter } from "lucide-react";
-import api from "@/lib/axios";
+import { useMapComplaintsQuery } from "@/hooks/use-complaints-query";
 import type { ComplaintStatus } from "@/types";
 
 const MapContainer = dynamic(
@@ -29,19 +29,6 @@ const Popup = dynamic(
   { ssr: false }
 );
 
-interface MapComplaint {
-  id: string;
-  complaintNumber: string;
-  title: string;
-  status: string;
-  latitude: number;
-  longitude: number;
-  address?: string;
-  createdAt: string;
-  category?: { name: string; icon: string };
-  department?: { name: string };
-}
-
 const statusOptions = ["ALL", "SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS", "RESOLVED", "REOPENED"];
 const categoryOptions = [
   "All Categories", "Road Damage", "Garbage", "Street Light",
@@ -49,15 +36,17 @@ const categoryOptions = [
 ];
 
 export default function MapPage() {
-  const [complaints, setComplaints] = useState<MapComplaint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const { data: complaints = [], isLoading: loading } = useMapComplaintsQuery();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
 
   useEffect(() => {
-    setMounted(true);
     import("leaflet/dist/leaflet.css");
     import("leaflet").then((L) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,11 +57,8 @@ export default function MapPage() {
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
     });
-    api.get("/complaints/map")
-      .then((res) => setComplaints(res.data.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
   }, []);
+
 
   const filtered = useMemo(() => {
     return complaints.filter((c) => {

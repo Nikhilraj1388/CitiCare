@@ -3,7 +3,11 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { complaintService } from "@/services/complaint.service";
+import {
+  useComplaintDetailQuery,
+  useUpdateComplaintStatusMutation,
+  useSubmitFeedbackMutation,
+} from "@/hooks/use-complaints-query";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatusBadge } from "@/components/status-badge";
 import { CategoryIcon } from "@/components/category-icon";
@@ -17,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import api from "@/lib/axios";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -27,7 +30,7 @@ import {
   User,
   Star,
 } from "lucide-react";
-import type { Complaint, ComplaintStatus } from "@/types";
+import type { ComplaintStatus } from "@/types";
 
 export default function ComplaintDetailPage({
   params,
@@ -37,46 +40,43 @@ export default function ComplaintDetailPage({
   const { id } = use(params);
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [complaint, setComplaint] = useState<Complaint | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const { data: complaint, isLoading: complaintLoading } = useComplaintDetailQuery(
+    id,
+    { enabled: isAuthenticated && !!id }
+  );
+
+  const updateStatusMutation = useUpdateComplaintStatusMutation();
+  const submitFeedbackMutation = useSubmitFeedbackMutation();
+
   const isAdminOrOfficial = user?.role === "ADMIN" || user?.role === "OFFICIAL";
   const [rating, setRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
-  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push("/login");
   }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
-    if (isAuthenticated && id) {
-      complaintService
-        .getById(id)
-        .then((res) => setComplaint(res.data as Complaint))
-        .catch(() => toast.error("Failed to load complaint"))
-        .finally(() => setLoading(false));
-    }
-  }, [isAuthenticated, id]);
 
   const handleFeedback = async () => {
     if (rating === 0) {
       toast.error("Please select a rating");
       return;
     }
-    setSubmittingFeedback(true);
-    try {
-      await complaintService.submitFeedback(id, rating, feedbackComment || undefined);
-      toast.success("Feedback submitted!");
-      // Refresh complaint
-      const res = await complaintService.getById(id);
-      setComplaint(res.data as Complaint);
-    } catch {
-      toast.error("Failed to submit feedback");
-    } finally {
-      setSubmittingFeedback(false);
-    }
+    submitFeedbackMutation.mutate(
+      { complaintId: id, rating, comment: feedbackComment || undefined },
+      {
+        onSuccess: () => {
+          toast.success("Feedback submitted!");
+          setFeedbackComment("");
+        },
+        onError: () => {
+          toast.error("Failed to submit feedback");
+        },
+      }
+    );
   };
+
+  const loading = complaintLoading;
 
   if (authLoading || !user || loading) return <PageLoader />;
   if (!complaint) return <PageLoader text="Complaint not found" />;
@@ -115,22 +115,20 @@ export default function ComplaintDetailPage({
                 {isAdminOrOfficial && (
                   <Select
                     value={complaint.status}
-                    onValueChange={async (v) => {
-                      setUpdatingStatus(true);
-                      try {
-                        await api.put(`/complaints/${complaint.id}/status`, {
+                    onValueChange={(v) => {
+                      updateStatusMutation.mutate(
+                        {
+                          id: complaint.id,
                           status: v,
                           remarks: `Status updated to ${v.replace("_", " ").toLowerCase()}`,
-                        });
-                        setComplaint({ ...complaint, status: v as ComplaintStatus });
-                        toast.success("Status updated");
-                      } catch {
-                        toast.error("Failed to update status");
-                      } finally {
-                        setUpdatingStatus(false);
-                      }
+                        },
+                        {
+                          onSuccess: () => toast.success("Status updated"),
+                          onError: () => toast.error("Failed to update status"),
+                        }
+                      );
                     }}
-                    disabled={updatingStatus}
+                    disabled={updateStatusMutation.isPending}
                   >
                     <SelectTrigger className="w-[160px] h-8 text-xs">
                       <SelectValue />
@@ -145,6 +143,7 @@ export default function ComplaintDetailPage({
                   </Select>
                 )}
               </div>
+
               <h1 className="text-xl font-bold text-gray-900">
                 {complaint.title}
               </h1>
@@ -234,6 +233,7 @@ export default function ComplaintDetailPage({
                   key={img.id}
                   className="aspect-video rounded-xl bg-gray-100 overflow-hidden"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.imageUrl}
                     alt="Complaint"
@@ -326,10 +326,10 @@ export default function ComplaintDetailPage({
                 />
                 <Button
                   onClick={handleFeedback}
-                  disabled={submittingFeedback}
+                  disabled={submitFeedbackMutation.isPending}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  Submit Feedback
+                  {submitFeedbackMutation.isPending ? "Submitting..." : "Submit Feedback"}
                 </Button>
               </div>
             </div>

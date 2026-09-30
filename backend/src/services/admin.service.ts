@@ -29,6 +29,13 @@ export class AdminService {
           id: true, fullName: true, email: true, phone: true,
           role: true, isActive: true, createdAt: true,
           _count: { select: { complaints: true } },
+          departmentUsers: {
+            select: {
+              department: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
