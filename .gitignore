@@ -26,5 +26,13 @@ npm-debug.log*
 # Prisma
 backend/prisma/*.db
 
-# Docker
-pgdata/
+# Uploads
+uploads/
+backend/uploads/
+
+# Agent & AI skills
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+

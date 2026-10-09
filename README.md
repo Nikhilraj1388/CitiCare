@@ -12,7 +12,7 @@ CitiCare connects Citizens, Municipal Departments, and Administrators on one pla
 | ---------- | ----------------------------------------------------------------------------------------- |
 | Frontend   | Next.js 15, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, Framer Motion, Leaflet, Recharts |
 | Backend    | Node.js, Express.js, TypeScript, Prisma ORM, JWT, Passport.js, Multer, Nodemailer         |
-| Database   | PostgreSQL 16 (Docker)                                                                    |
+| Database   | PostgreSQL 16 (Neon Serverless Cloud)                                                     |
 | Storage    | Cloudinary                                                                                |
 
 ---
@@ -21,7 +21,7 @@ CitiCare connects Citizens, Municipal Departments, and Administrators on one pla
 
 - **Node.js** >= 18
 - **npm** >= 9
-- **Docker** (for PostgreSQL)
+- **Neon Account** (or any PostgreSQL connection string)
 
 ---
 
@@ -34,28 +34,22 @@ git clone https://github.com/Nikhilraj1388/CitiCare.git
 cd CitiCare
 ```
 
-### 2. Start PostgreSQL
+### 2. Configure Environment
 
-```bash
-docker compose up -d
+Create `.env` in `backend/` and set your Neon PostgreSQL connection string:
+```env
+PORT=5000
+DATABASE_URL=postgresql://<user>:<password>@<neon-host>/citicare?sslmode=require
+JWT_SECRET=your_jwt_secret
+CLIENT_URL=http://localhost:3000
 ```
-
-This starts PostgreSQL 16 on `localhost:5432` with:
-- User: `postgres`
-- Password: `citicare_dev_2026`
-- Database: `citicare`
 
 ### 3. Backend Setup
 
 ```bash
 cd backend
 npm install
-```
-
-Create `.env` file (already provided, update if needed):
-```
-PORT=5000
-DATABASE_URL=postgresql://postgres:citicare_dev_2026@localhost:5432/citicare
+npx prisma generate
 ```
 
 Start the development server:
@@ -106,7 +100,6 @@ CitiCare/
 │   │   └── validators/ # Request validation
 │   ├── prisma/         # Database schema & migrations
 │   └── ...
-├── docker-compose.yml  # PostgreSQL container
 └── *.md                # Project documentation
 ```
 
