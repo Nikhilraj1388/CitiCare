@@ -206,3 +206,9 @@ html {
     @apply font-sans;
   }
 }
+
+/* Hide floating Next.js dev indicator */
+nextjs-portal,
+[data-nextjs-dev-indicator] {
+  display: none !important;
+}

@@ -27,8 +27,10 @@ npm-debug.log*
 backend/prisma/*.db
 
 # Uploads
-uploads/
-backend/uploads/
+uploads/*
+backend/uploads/*
+!backend/uploads/.gitkeep
+
 
 # Agent & AI skills
 .agents/

@@ -18,7 +18,11 @@ import notificationRoutes from './routes/notification.routes';
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -55,7 +59,13 @@ app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 
 // Static file serving for uploads
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+const uploadStaticDir = path.resolve(
+  path.join(process.cwd(), 'uploads')
+);
+if (!require('fs').existsSync(uploadStaticDir)) {
+  require('fs').mkdirSync(uploadStaticDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadStaticDir));
 
 // Error handling
 app.use(notFound);

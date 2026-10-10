@@ -11,6 +11,13 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  if (err.name === 'MulterError' || (err.message && err.message.includes('Only JPEG, PNG'))) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
   const statusCode = err.statusCode || 500;
   const message = err.isOperational ? err.message : 'Internal Server Error';
 
