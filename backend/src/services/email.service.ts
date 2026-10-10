@@ -1,42 +1,78 @@
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+interface EmailRecipient {
+  email: string;
+  name?: string;
+}
 
 interface EmailOptions {
-  to: string;
+  to: string | EmailRecipient[];
+  name?: string;
   subject: string;
   html: string;
 }
 
 export class EmailService {
+  /**
+   * Check if Brevo is configured with an API key and sender email
+   */
   private static isConfigured(): boolean {
-    return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    return !!(
+      process.env.BREVO_API_KEY &&
+      (process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_FROM || process.env.EMAIL_USER)
+    );
   }
 
+  /**
+   * Send transactional email using Brevo's HTTP API (port 443, Render-compatible)
+   */
   static async send(options: EmailOptions): Promise<boolean> {
-    if (!this.isConfigured()) {
-      console.log(`📧 [EMAIL SKIPPED] To: ${options.to} | Subject: ${options.subject}`);
-      console.log(`   Configure EMAIL_USER and EMAIL_PASS in .env to enable emails`);
+    const apiKey = process.env.BREVO_API_KEY;
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    const senderName = process.env.BREVO_SENDER_NAME || "CitiCare";
+
+    if (!apiKey || !senderEmail) {
+      const recipient = typeof options.to === "string" ? options.to : options.to[0]?.email;
+      console.log(`📧 [EMAIL SKIPPED] To: ${recipient} | Subject: ${options.subject}`);
+      console.log(`   Configure BREVO_API_KEY and BREVO_SENDER_EMAIL in .env to enable emails`);
       return false;
     }
 
+    const recipients =
+      typeof options.to === "string"
+        ? [{ email: options.to, name: options.name || "" }]
+        : options.to.map((r) => ({ email: r.email, name: r.name || "" }));
+
     try {
-      await transporter.sendMail({
-        from: `"CitiCare" <${process.env.EMAIL_USER}>`,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": apiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: {
+            name: senderName,
+            email: senderEmail,
+          },
+          to: recipients,
+          subject: options.subject,
+          htmlContent: options.html,
+        }),
       });
-      console.log(`📧 [EMAIL SENT] To: ${options.to} | Subject: ${options.subject}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`📧 [BREVO EMAIL FAILED] Status: ${response.status}`, errorData);
+        return false;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      const recipientStr = recipients.map((r) => r.email).join(", ");
+      console.log(`📧 [BREVO EMAIL SENT] To: ${recipientStr} | Subject: ${options.subject}`, data);
       return true;
     } catch (error) {
-      console.error(`📧 [EMAIL FAILED] To: ${options.to}`, error);
+      const recipient = typeof options.to === "string" ? options.to : options.to[0]?.email;
+      console.error(`📧 [BREVO EMAIL ERROR] To: ${recipient}`, error);
       return false;
     }
   }
@@ -44,6 +80,7 @@ export class EmailService {
   static async sendWelcome(email: string, fullName: string) {
     return this.send({
       to: email,
+      name: fullName,
       subject: "Welcome to CitiCare! 🎉",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -78,6 +115,7 @@ export class EmailService {
   ) {
     return this.send({
       to: email,
+      name: fullName,
       subject: `Complaint ${complaintNumber} Submitted ✅`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -123,6 +161,7 @@ export class EmailService {
     };
     return this.send({
       to: email,
+      name: fullName,
       subject: `Complaint ${complaintNumber} — Status Updated`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -154,6 +193,7 @@ export class EmailService {
     const resetUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
     return this.send({
       to: email,
+      name: fullName,
       subject: "Reset Your CitiCare Password",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -184,6 +224,7 @@ export class EmailService {
   ) {
     return this.send({
       to: email,
+      name: fullName,
       subject: `Complaint ${complaintNumber} Resolved! ✅`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

@@ -11,7 +11,7 @@ CitiCare connects Citizens, Municipal Departments, and Administrators on one pla
 | Layer      | Technologies                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------- |
 | Frontend   | Next.js 15, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, Framer Motion, Leaflet, Recharts |
-| Backend    | Node.js, Express.js, TypeScript, Prisma ORM, JWT, Passport.js, Multer, Nodemailer         |
+| Backend    | Node.js, Express.js, TypeScript, Prisma ORM, JWT, Passport.js, Multer, Brevo (Transactional API) |
 | Database   | PostgreSQL 16 (Neon Serverless Cloud)                                                     |
 | Storage    | Cloudinary                                                                                |
 

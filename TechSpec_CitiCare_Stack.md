@@ -34,7 +34,7 @@
   Passport.js         Authentication Strategy
   bcrypt              Password Hashing
   Multer              File Upload
-  Nodemailer          Email Notifications
+  Brevo REST API      Email Notifications (HTTP API / Render compatible)
   Express Validator   API Validation
   CORS                Cross-Origin Requests
   dotenv              Environment Variables
@@ -200,7 +200,7 @@ src/
 
 ## 15. Notifications
 
--   Nodemailer
+-   Brevo Transactional API (HTTP / Port 443)
 -   Complaint Submitted
 -   Status Updated
 -   Complaint Resolved
