@@ -3,6 +3,13 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// Neon & PgBouncer advisory lock protection:
+// Prisma CLI migrations require a direct connection without PgBouncer pooler (-pooler).
+const getDirectUrl = (url?: string) => {
+  if (!url) return "";
+  return url.replace("-pooler.", ".");
+};
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -10,6 +17,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DIRECT_URL"] || getDirectUrl(process.env["DATABASE_URL"]),
   },
 });
